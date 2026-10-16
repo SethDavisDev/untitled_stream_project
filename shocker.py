@@ -4,21 +4,16 @@ import requests
 class Shocker:
     def __init__(self, name):
         self.name = name
-        self.username = ''
-        self.api_key = ''
-        self.share_code = ''
         self.url = "https://api.pishock.com"
         self.auth_head = {
-            "X-PiShock-Api-Key": self.api_key,
+            "X-PiShock-Api-Key": '',
         }
 
-    def set_auth_info(self, username, key, code):
-        self.username = username
-        self.api_key = key
-        self.share_code = code
+    def set_auth_header(self, auth_key: str) -> None:
         self.auth_head = self.auth_head = {
-            "X-PiShock-Api-Key": self.api_key,
+            "X-PiShock-Api-Key": auth_key,
         }
+        print(self.auth_head)
 
     def get_api(self, endpoint):
         try:
@@ -84,11 +79,12 @@ class Shocker:
             print(f"An unexpected error occurred: {general_err}")
         else: return True
 
-    def get_shockers(self):
+    def get_shocker_id(self) -> str:
         endpoint = "/Shockers"
         data = self.get_api(endpoint)
-        print(data)
-        return data
+        if not data or not data[0] or not data[0]['ShockerId']:
+            return 'shocker_id_not_found'
+        return data[0]['ShockerId']
 
 
     def shock(self, shocker_id, duration, intensity):

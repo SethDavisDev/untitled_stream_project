@@ -3,8 +3,6 @@ from shocker import Shocker
 import numpy as np
 import time
 
-def convert_s_to_ms(s):
-    return s*1000
 
 def map_value(value, min_val, max_val, target_min, target_max):
     # Figure out how 'wide' each range is
@@ -30,6 +28,7 @@ class Configlayer:
 
         #shocker stuff
         self.shocker = Shocker('Pishock')
+        self.mode = 0       # 0 is shock 1 is vibrate 2 is beep, same as pishock api 
         self.shocker_id = 0
         self.is_allowed_to_shock = True
         self.shock_timeblock_duration_s = 60
@@ -41,14 +40,34 @@ class Configlayer:
         self.min_intensity = 10
         self.max_retries = 5
         self.retries_left = 0
+        self.got_lucky_count = 0
+
+    def test_shock(self):
+        self.shocker.shock(self.shocker_id, 500, 5)
 
     #sends auth information through to the heartrate monitor object
-    def configure_hr_connection(self, auth_code):
-        self.hr.set_auth(auth_code)
+    def configure_devices(self, pulse_code, pishock_code):
+        self.hr.set_auth(pulse_code)
+        self.shocker.set_auth_header(pishock_code)
 
     #how long after a shock is sent before we can send another one
     def set_timeblock(self, new_duration):
         self.shock_timeblock_duration_s = new_duration
+
+    def configure_settings(self, low_spike, high_spike, window_size, low_shock, high_shock, duration, block_duration, ):
+        self.min_punishable_spike = low_spike
+        self.max_punishable_spike = high_spike
+        self.history_window_size = window_size
+        self.min_intensity = low_shock
+        self.max_intensity = high_shock
+        self.shock_duration = duration
+        self.shock_timeblock_duration_s = block_duration
+
+    def heartrate_input(self):
+        ...
+
+    def shocker_output():
+        ...
 
     #checks the last 15 seconds of filtered heartrate data and returns the lowest, highest, and the difference between them
     def get_historic_hr_difference(self):
@@ -63,23 +82,8 @@ class Configlayer:
                 print("heartrate increasing")
                 return [lowest, highest, delta, True]
 
-    def configure_shocker_connection(self, user, auth, sharecode):
-        self.shocker.set_auth_info(user, auth, sharecode)
-
-    def setup(self):
-        data = self.shocker.get_shockers()
-        if data:
-            self.shocker_id = data[0]['ShockerId']
-
-    def attempt_punish(self, func):
-        if self.retries_left <= 0:
-            return
-        val = func()
-        if val['success']:
-            print(val['text'])
-            self.retries_left = 0
-        else:
-            self.retries_left -= 1
+    def store_shocker_device_id(self):
+        self.shocker_id = self.shocker.get_shocker_id()
     
     def update(self):
         # has the user told us to start polling and shocking
@@ -113,7 +117,6 @@ class Configlayer:
         intensity = self.convert_jump_amount_to_intensity(delta)
 
         #send shock
-        
         self.attempt_punish(lambda: self.shocker.shock(self.shocker_id, self.shock_duration, intensity))
         self.is_allowed_to_shock = False
         self.last_shock_time = time.perf_counter()
@@ -126,10 +129,10 @@ class Configlayer:
         if len(self.buffer) > self.filter_window_size:
             self.buffer.pop(0)
             
-        # 2. Extract median from current rolling window
+        #Extract median from current rolling window
         median = np.median(self.buffer)
         
-        # 3. Check for sudden spikes relative to the rolling median
+        #Check for sudden spikes relative to the rolling median
         if abs(new_reading - median) > self.max_deviation:
             # Replace spike in buffer with median so it doesn't skew future calculations
             self.buffer[-1] = median
