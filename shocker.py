@@ -20,10 +20,73 @@ class Shocker:
             "X-PiShock-Api-Key": self.api_key,
         }
 
+    def get_api(self, endpoint):
+        try:
+            response = requests.get(self.url+endpoint, headers=self.auth_head)
+            # raise errors for 4xx and 5xx status codes
+            response.raise_for_status()
+
+            # process data when things go well
+            data = response.json()
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+            data = {}
+        except requests.exceptions.JSONDecodeError as json_err:
+            print(f"Json parse error occurred: {json_err}")
+            data = {}
+        except requests.exceptions.ConnectionError as conn_err:
+            # Network failures, DNS issues, refused connections
+            print(f"Connection error occurred: {conn_err}")
+            data = {}
+        except requests.exceptions.Timeout as time_err:
+            # Request exceeded specified timeout limit
+            print(f"Timeout error occurred: {time_err}")
+            data = {}
+        except requests.exceptions.RequestException as general_err:
+            # Catch-all base class for any requests-related exception
+            print(f"An unexpected error occurred: {general_err}")
+            data = {}
+        return data
+
+    def post_api(self, endpoint, post_data):
+        try:
+            x = requests.post(self.url+endpoint, json = post_data, headers=self.auth_head)
+            x.raise_for_status()
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+            print(f"status code: {x.status_code}\nreason:{x.reason}")
+            if x.status_code == 401:
+                print("API Key is invalid, or user does not have access to requested device.")
+            if x.status_code == 404:
+                print(f"Could not find device or share")
+            if x.status_code == 405:
+                print(f"An operation was provided but that share has not allowed the device to perform (such as shocking while shocking is disabled on the share)")
+            if x.status_code == 406:
+                print(f"Device is not V3 — Please encourage the user to flash V3 on the device or seek tech support assitance")
+            if x.status_code == 410:
+                print(f"Share is locked")
+            if x.status_code == 412:
+                print(f"Intensity is out of bounds (<1, >100, higher than max intensity for a shock)")
+            if x.status_code == 416:
+                print(f"Duration exceeds limits on share, is lower than 16ms (due to legacy concerns) or higher than 15,000ms")
+            if x.status_code == 503:
+                print(f"Share or Shocker is paused")
+        except requests.exceptions.JSONDecodeError as json_err:
+            print(f"Json parse error occurred: {json_err}")
+        except requests.exceptions.ConnectionError as conn_err:
+            # Network failures, DNS issues, refused connections
+            print(f"Connection error occurred: {conn_err}")
+        except requests.exceptions.Timeout as time_err:
+            # Request exceeded specified timeout limit
+            print(f"Timeout error occurred: {time_err}")
+        except requests.exceptions.RequestException as general_err:
+            # Catch-all base class for any requests-related exception
+            print(f"An unexpected error occurred: {general_err}")
+        else: return True
+
     def get_shockers(self):
         endpoint = "/Shockers"
-        response = requests.get(self.url+endpoint, headers=self.auth_head)
-        data = response.json()
+        data = self.get_api(endpoint)
         print(data)
         return data
 
@@ -41,14 +104,9 @@ class Shocker:
             "IntensityAsPercentage": False
             }
         print(shock_post)
-        x = requests.post(self.url+endpoint, json = shock_post, headers=self.auth_head)
-        if x.status_code  < 200 or x.status_code > 299:
-            print(x.status_code)
-            print(x.reason)
-            print(x.text)
-            return f"Something went wrong  vOv"
-        print(x.status_code)
-        return f"sent shock at intensity: {intensity} for {duration} milliseconds"
+        if self.post_api(endpoint, shock_post):
+            return {'success': True, 'text': f"Sent shock at {intensity} for {duration} ms"}
+        else: {'success': False, 'text':f"ran into error during api call"}
 
     def vibrate(self, shocker_id, duration, intensity):
             endpoint = f"/Shockers/OperateById/{shocker_id}"
@@ -63,14 +121,11 @@ class Shocker:
                 "IntensityAsPercentage": False
                 }
             print(shock_post)
-            x = requests.post(self.url+endpoint, json = shock_post, headers=self.auth_head)
-            if x.status_code  < 200 or x.status_code > 299:
-                print(x.status_code)
-                print(x.reason)
-                print(x.text)
-                return f"Something went wrong  vOv"
-            print(x.status_code)
-            return f"sent vibrate at intensity: {intensity} for {duration} milliseconds"
+            
+            if  self.post_api(endpoint, shock_post):
+                return {'success': True, 'text': f"sent vibrate at intensity: {intensity} for {duration} milliseconds"}
+            else:
+                return {'success': False, 'text':f"ran into error during api call"}
 
 
     def beep(self, shocker_id, duration):
@@ -86,11 +141,7 @@ class Shocker:
             "IntensityAsPercentage": False
             }
         print(shock_post)
-        x = requests.post(self.url+endpoint, json = shock_post, headers=self.auth_head)
-        if x.status_code  < 200 or x.status_code > 299:
-            print(x.status_code)
-            print(x.reason)
-            print(x.text)
-            return f"Something went wrong  vOv"
-        print(x.status_code)
-        return f"sent beep for {duration} seconds"
+        if self.post_api(endpoint, shock_post):
+            return {'success': True, 'text': f"Sent beep for {duration} milliseconds"}
+        else:
+            return {'success': False, 'text':f"ran into error during api call"}

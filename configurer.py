@@ -39,6 +39,8 @@ class Configlayer:
         self.max_punishable_spike = 40
         self.max_intensity = 50
         self.min_intensity = 10
+        self.max_retries = 5
+        self.retries_left = 0
 
     #sends auth information through to the heartrate monitor object
     def configure_hr_connection(self, auth_code):
@@ -64,18 +66,20 @@ class Configlayer:
     def configure_shocker_connection(self, user, auth, sharecode):
         self.shocker.set_auth_info(user, auth, sharecode)
 
-    def test_hr_display(self):
-        data = self.hr.poll_montior()
-        return data['data']
-    
-    #for testing, sends a one second shock at the lowest intensity
-    def send_test_shock(self):
-        self.shocker.shock(1,1)
-
     def setup(self):
         data = self.shocker.get_shockers()
-        self.shocker_id = data[0]['ShockerId']
+        if data:
+            self.shocker_id = data[0]['ShockerId']
 
+    def attempt_punish(self, func):
+        if self.retries_left <= 0:
+            return
+        val = func()
+        if val['success']:
+            print(val['text'])
+            self.retries_left = 0
+        else:
+            self.retries_left -= 1
     
     def update(self):
         # has the user told us to start polling and shocking
@@ -109,12 +113,10 @@ class Configlayer:
         intensity = self.convert_jump_amount_to_intensity(delta)
 
         #send shock
-        self.shocker.vibrate(self.shocker_id, self.shock_duration, intensity)
+        
+        self.attempt_punish(lambda: self.shocker.shock(self.shocker_id, self.shock_duration, intensity))
         self.is_allowed_to_shock = False
         self.last_shock_time = time.perf_counter()
-        
-
-    
 
     def update_filter_window(self, new_reading):
         #Base constraints these are the human limits
