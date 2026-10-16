@@ -80,8 +80,6 @@ class Configlayer:
     def update(self):
         # has the user told us to start polling and shocking
         # should be false when none of the auth information is set up, to avoid crashes
-        if not self.is_active:
-            return
         #check if we need to remove the blocker
         if time.perf_counter() - self.last_shock_time > self.shock_timeblock_duration_s:
             self.is_allowed_to_shock = True
