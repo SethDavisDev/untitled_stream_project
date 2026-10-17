@@ -110,6 +110,7 @@ class Configlayer:
         if not self.is_allowed_to_shock:
             print("Tried to shock but blocked by blocker")
             return False
+        return True
 
     def is_unlucky(self):
         chance_val = self.luck_numerator / self.luck_denomenator
@@ -126,7 +127,7 @@ class Configlayer:
         intensity = self.convert_jump_amount_to_intensity(sanitized_delta)
 
         #send shock
-        self.attempt_punish(lambda: self.shocker.shock(self.shocker_id, self.shock_duration, intensity))
+        self.shocker.shock(self.shocker_id, self.shock_duration, intensity)
         self.is_allowed_to_shock = False
         self.last_shock_time = time.perf_counter()
 
