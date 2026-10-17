@@ -154,8 +154,6 @@ class Configlayer:
 
     def store_shocker_device_id(self):
         self.shocker_id = self.shocker.get_shocker_id()
-    
-
 
     def update_filter_window(self, new_reading):
         #Base constraints these are the human limits
@@ -173,9 +171,8 @@ class Configlayer:
             # Replace spike in buffer with median so it doesn't skew future calculations
             self.buffer[-1] = median
             return median
-            
         return float(new_reading)
 
     def convert_jump_amount_to_intensity(self, jump_amount):
-        intensity_value = int(map_value(jump_amount, self.min_punishable_spike, self.max_punishable_spike, 1, self.max_intensity))
+        intensity_value = int(map_value(jump_amount, self.min_punishable_spike, self.max_punishable_spike, self.min_intensity, self.max_intensity))
         return intensity_value
