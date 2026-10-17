@@ -62,14 +62,19 @@ def start():
     global is_hr_active
     is_hr_active = True
     tracker_loop()
+
 def stop():
+    test.clear_history()
     global is_hr_active
     is_hr_active = False
+
 def test_shocker():
     test.test_shock()
+
 def randomly_shock():
     if random.random() < 0.2:
         test.test_shock()
+
 def lucky_mode():
     global is_in_luck_mode
     if is_in_luck_mode:

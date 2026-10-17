@@ -85,6 +85,10 @@ class Configlayer:
         self.shock_timeblock_duration_s = block_duration
         self.starting_chance = set_chance
 
+    # remove heartrate data from history
+    def clear_history(self):
+        self.history = []
+
     def heartrate_input(self):
         data = hr_data()
         data.unfiltered = self.hr.poll_montior()
@@ -114,7 +118,7 @@ class Configlayer:
 
     def is_unlucky(self):
         chance_val = self.luck_numerator / self.luck_denomenator
-        if random.random < chance_val:
+        if random.random() < chance_val:
             self.increase_luck_numerator()
             print("You got lucky")
             return False
