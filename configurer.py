@@ -1,8 +1,14 @@
+#built in
+import time
+import random
+from dataclasses import dataclass
+
+#dependencies
+import numpy as np
+
+#internal
 from heartrate_monitor import HeartrateMonitor
 from shocker import Shocker
-import numpy as np
-import time
-
 
 def map_value(value, min_val, max_val, target_min, target_max):
     # Figure out how 'wide' each range is
@@ -15,6 +21,15 @@ def map_value(value, min_val, max_val, target_min, target_max):
     # Convert the 0-1 range into a value in the right range
     return target_min + (value_scaled * right_span)
 
+@dataclass
+class hr_data:
+    unfiltered: float = 0
+    filtered: float = 0
+    low: float = 0
+    high: float = 0
+    change: float = 0
+    is_increasing: bool = False
+
 class Configlayer:
     def __init__(self, window_size=5, history_size = 30, max_deviation_bpm=20):
         #heart rate stuff
@@ -25,6 +40,7 @@ class Configlayer:
         self.buffer = []
         self.history = []
         self.max_deviation = 40
+        self.last_data = hr_data()
 
         #shocker stuff
         self.shocker = Shocker('Pishock')
@@ -40,8 +56,13 @@ class Configlayer:
         self.min_intensity = 10
         self.max_retries = 5
         self.retries_left = 0
-        self.got_lucky_count = 0
-
+        self.luck_numerator = 1
+        self.luck_denomenator = 5
+       
+    def increase_luck_numerator(self):
+        self.luck_numerator = min(self.luck_numerator + 1, self.luck_denomenator)
+    def reset_luck(self):
+        self.luck_numerator = 1
     def test_shock(self):
         self.shocker.shock(self.shocker_id, 500, 5)
 
@@ -54,7 +75,7 @@ class Configlayer:
     def set_timeblock(self, new_duration):
         self.shock_timeblock_duration_s = new_duration
 
-    def configure_settings(self, low_spike, high_spike, window_size, low_shock, high_shock, duration, block_duration, ):
+    def configure_settings(self, low_spike, high_spike, window_size, low_shock, high_shock, duration, block_duration, set_chance):
         self.min_punishable_spike = low_spike
         self.max_punishable_spike = high_spike
         self.history_window_size = window_size
@@ -62,12 +83,52 @@ class Configlayer:
         self.max_intensity = high_shock
         self.shock_duration = duration
         self.shock_timeblock_duration_s = block_duration
+        self.starting_chance = set_chance
 
     def heartrate_input(self):
-        ...
+        data = hr_data()
+        data.unfiltered = self.hr.poll_montior()
+        print(data.unfiltered)
+        data.filtered = self.update_filter_window(data.unfiltered)
+        print(f"filtered: {data.filtered}")
+        self.history.append(data.filtered)
+        if len(self.history) > self.history_window_size:
+            self.history.pop(0)
+        data.low, data.high, data.change, data.is_increasing = self.get_historic_hr_difference()
+        
 
-    def shocker_output():
-        ...
+    def reset_shock_blocker(self):
+        if time.perf_counter() - self.last_shock_time > self.shock_timeblock_duration_s:
+            self.is_allowed_to_shock = True
+    
+    def is_shock_deserved(self) -> bool:    
+        # bool whether we need to send shock
+        if not self.last_data.is_increasing:
+            return False
+        if (self.last_data.change) < self.min_punishable_spike:
+            return False
+        if not self.is_allowed_to_shock:
+            print("Tried to shock but blocked by blocker")
+            return False
+
+    def is_unlucky(self):
+        chance_val = self.luck_numerator / self.luck_denomenator
+        if random.random < chance_val:
+            self.increase_luck_numerator()
+            print("You got lucky")
+            return False
+        else:
+            return True
+    
+    def shocker_output(self):
+        #generate information about the shock we need to send
+        sanitized_delta = min(self.last_data.c, self.max_punishable_spike)
+        intensity = self.convert_jump_amount_to_intensity(sanitized_delta)
+
+        #send shock
+        self.attempt_punish(lambda: self.shocker.shock(self.shocker_id, self.shock_duration, intensity))
+        self.is_allowed_to_shock = False
+        self.last_shock_time = time.perf_counter()
 
     #checks the last 15 seconds of filtered heartrate data and returns the lowest, highest, and the difference between them
     def get_historic_hr_difference(self):
@@ -85,41 +146,7 @@ class Configlayer:
     def store_shocker_device_id(self):
         self.shocker_id = self.shocker.get_shocker_id()
     
-    def update(self):
-        # has the user told us to start polling and shocking
-        # should be false when none of the auth information is set up, to avoid crashes
-        #check if we need to remove the blocker
-        if time.perf_counter() - self.last_shock_time > self.shock_timeblock_duration_s:
-            self.is_allowed_to_shock = True
 
-        current_hr = self.hr.poll_montior()
-        print(current_hr)
-        filtered_hr = self.update_filter_window(current_hr)
-        print(f"filtered: {filtered_hr}")
-        self.history.append(filtered_hr)
-        if len(self.history) > 10:
-            self.history.pop(0)
-        history_data = self.get_historic_hr_difference()
-        is_increase = history_data[3]
-        delta = history_data[2]
-
-        #make sure we are allowed to send a shock
-        if not is_increase:
-            return
-        if (delta) < self.min_punishable_spike:
-            return
-        if not self.is_allowed_to_shock:
-            print("Tried to shock but blocked by blocker")
-            return
-
-        #generate information about the shock we need to send
-        sanitized_delta = min(delta, self.max_punishable_spike)
-        intensity = self.convert_jump_amount_to_intensity(delta)
-
-        #send shock
-        self.attempt_punish(lambda: self.shocker.shock(self.shocker_id, self.shock_duration, intensity))
-        self.is_allowed_to_shock = False
-        self.last_shock_time = time.perf_counter()
 
     def update_filter_window(self, new_reading):
         #Base constraints these are the human limits

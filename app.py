@@ -15,7 +15,7 @@ class LabeledSpin(tk.Frame):
         self.set_range(1,100)
         self.set_default(initial_val)
         self.label.pack(side='left')
-        self.spin.pack(side='left', expand=True, fill='x')
+        self.spin.pack(side='left')
 
     def get(self):
         return int(self.spin.get())
@@ -28,21 +28,24 @@ class LabeledSpin(tk.Frame):
         self.spin.config(from_=from_, to=to)
     
 
-def tracker_loop():
-    test.update()
-    root.after(500, tracker_loop)
+is_hr_active = False
+is_Shock_active = False
+is_in_luck_mode = False
 
-def rand_shock():
-    if random.random() < 0.2:
-        test.test_shock()
+def tracker_loop():
+    if not is_hr_active:
+        return
+    if test.is_shock_deserved():
+        if not is_in_luck_mode or (is_in_luck_mode and test.is_unlucky()):
+            test.shocker_output()
+    test.heartrate_input()
+    root.after(500, tracker_loop)
 
 def save_keys():
     pulse_key = content['pulse_key_entry'].get()
-    print(pulse_key)
     pishock_key = content['pishock_key_entry'].get()
-    print(pishock_key)
     test.configure_devices(pulse_key, pishock_key)
-    test.setup()
+    test.store_shocker_device_id()
 
 def save_settings():
     low_spike = content['low_spike'].get()
@@ -55,6 +58,24 @@ def save_settings():
 
     test.configure_settings(low_spike, high_spike, window_size, low_shock, high_shock, shock_duration, block_duration)
 
+def start():
+    global is_hr_active
+    is_hr_active = True
+    tracker_loop()
+def stop():
+    global is_hr_active
+    is_hr_active = False
+def test_shocker():
+    test.test_shock()
+def randomly_shock():
+    if random.random < 0.2:
+        test.test_shock()
+def lucky_mode():
+    global is_in_luck_mode
+    if is_in_luck_mode:
+        is_in_luck_mode = False
+    else: is_in_luck_mode = True
+    content['luck_mode_value'].config(text=f"Gamble Mode is {"ON" if is_in_luck_mode else "OFF"}")
 
 test = configurer.Configlayer()
 root = tk.Tk()
@@ -104,6 +125,22 @@ content['window_size'].set_range(10, 40)
 content['block_duration'] = LabeledSpin(content['settings_frame'], 'minimum delay between shocks', initial_val=60)
 content['block_duration'].set_range(10, 300)
 
+content['buttons_frame'] = tk.Frame(content['controls_frame'])
+content['start'] = tk.Button(content['buttons_frame'], text="Start Heart rate Monitoring", command=start)
+content['stop'] = tk.Button(content['buttons_frame'], text="Stop Heart rate Monitoring", command=stop)
+content['test_shocker'] = tk.Button(content['buttons_frame'], text="Test Shocker", command=test_shocker)
+content['luck_mode'] = tk.Button(content['buttons_frame'], text="Toggle Gamble Mode", command=lucky_mode)
+content['luck_mode_value'] = tk.Label(content['buttons_frame'], text="Gamble Mode is OFF")
+content['lucky'] = tk.Button(content['buttons_frame'], text="I'm Feelin Lucky", command=randomly_shock)
+
+
+content['start'].pack()
+content['stop'].pack()
+content['test_shocker'].pack()
+content['luck_mode'].pack()
+content['luck_mode_value'].pack()
+content['lucky'].pack()
+
 content['low_spike'].pack()
 content['high_spike'].pack()
 content['low_shock'].pack()
@@ -115,6 +152,7 @@ content['block_duration'].pack()
 content['submit_settings'] = tk.Button(content['settings_frame'], text='Submit Settings', command=save_settings)
 content['submit_settings'].pack()
 content['settings_frame'].pack(side='left')
+content['buttons_frame'].pack(side='left')
 content['controls_frame'].pack(side='top')
 
 
