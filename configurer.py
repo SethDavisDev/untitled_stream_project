@@ -22,11 +22,9 @@ def map_value(value, min_val, max_val, target_min, target_max):
     return target_min + (value_scaled * right_span)
 
 @dataclass
-class hr_data:
-    unfiltered: float = 0
-    filtered: float = 0
-    low: float = 0
-    high: float = 0
+class change_snapshot:
+    low: float = 80
+    high: float = 80
     change: float = 0
     is_increasing: bool = False
 
@@ -40,7 +38,7 @@ class Configlayer:
         self.buffer = []
         self.history = []
         self.max_deviation = 40
-        self.last_data = hr_data()
+        self.last_change_snapshot = change_snapshot()
 
         #shocker stuff
         self.shocker = Shocker('Pishock')
@@ -90,15 +88,27 @@ class Configlayer:
         self.history = []
 
     def heartrate_input(self):
-        data = hr_data()
-        data.unfiltered = self.hr.poll_montior()
-        print(data.unfiltered)
-        data.filtered = self.update_filter_window(data.unfiltered)
-        print(f"filtered: {data.filtered}")
-        self.history.append(data.filtered)
+        unfiltered = self.hr.poll_montior()
+        print(unfiltered)
+        filtered = self.update_filter_window(unfiltered)
+        print(f"filtered: {filtered}")
+        self.history.append(filtered)
         if len(self.history) > self.history_window_size:
             self.history.pop(0)
-        data.low, data.high, data.change, data.is_increasing = self.get_historic_hr_difference()
+        self.get_historic_hr_difference()
+
+    #checks the last 15 seconds of filtered heartrate data and returns the lowest, highest, and the difference between them
+    def get_historic_hr_difference(self, history):
+        self.last_change_snapshot.low = min(history)
+        self.last_change_snapshot.high = max(history)
+        self.last_change_snapshot.change = self.last_change_snapshot.high - self.last_change_snapshot.low
+        print(f"heart rate difference is {self.last_change_snapshot.change}")
+        if history[0] > history[-1]:
+            self.last_change_snapshot.is_increasing = False
+            print("heartrate decreasing")
+        else:
+            self.last_change_snapshot.is_increasing = True
+            print("heartrate increasing")
         
 
     def reset_shock_blocker(self):
@@ -107,15 +117,16 @@ class Configlayer:
     
     def is_shock_deserved(self) -> bool:    
         # bool whether we need to send shock
-        if not self.last_data.is_increasing:
+        if not self.last_change_snapshot.is_increasing:
             return False
-        if (self.last_data.change) < self.min_punishable_spike:
+        if (self.last_change_snapshot.change) < self.min_punishable_spike:
             return False
         if not self.is_allowed_to_shock:
             print("Tried to shock but blocked by blocker")
             return False
         return True
 
+    # used when chance mode is active, rolls increasing odds of shocking
     def is_unlucky(self):
         chance_val = self.luck_numerator / self.luck_denomenator
         if random.random() > chance_val:
@@ -140,19 +151,6 @@ class Configlayer:
         self.shocker.shock(self.shocker_id, self.shock_duration, intensity)
         self.is_allowed_to_shock = False
         self.last_shock_time = time.perf_counter()
-
-    #checks the last 15 seconds of filtered heartrate data and returns the lowest, highest, and the difference between them
-    def get_historic_hr_difference(self):
-            lowest = min(self.history)
-            highest = max(self.history)
-            delta = highest - lowest
-            print(f"heart rate difference is {delta}")
-            if self.history[0] > self.history[-1]:
-                print("heartrate decreasing")
-                return [lowest, highest, delta, False]
-            else:
-                print("heartrate increasing")
-                return [lowest, highest, delta, True]
 
     def store_shocker_device_id(self):
         self.shocker_id = self.shocker.get_shocker_id()
