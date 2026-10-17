@@ -118,11 +118,17 @@ class Configlayer:
 
     def is_unlucky(self):
         chance_val = self.luck_numerator / self.luck_denomenator
-        if random.random() < chance_val:
+        if random.random() > chance_val:
             self.increase_luck_numerator()
             print("You got lucky")
+            self.is_allowed_to_shock = False
+            self.last_shock_time = time.perf_counter()
             return False
         else:
+            print(f"unlucky, get zapped")
+            self.reset_luck()
+            self.is_allowed_to_shock = False
+            self.last_shock_time = time.perf_counter()
             return True
     
     def shocker_output(self):
