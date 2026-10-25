@@ -126,7 +126,6 @@ class Shocker:
 
     def beep(self, shocker_id, duration):
         endpoint = f"/Shockers/OperateById/{shocker_id}"
-        intensity = min(max(0, intensity), 100)
         shock_post = {
             "AgentName": self.name,
             "Operation": 2,

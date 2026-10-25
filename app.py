@@ -38,6 +38,7 @@ def tracker_loop():
     if test.is_shock_deserved():
         if not is_in_luck_mode or (is_in_luck_mode and test.is_unlucky()):
             test.shocker_output()
+    test.reset_shock_blocker()
     test.heartrate_input()
     root.after(500, tracker_loop)
 
@@ -69,7 +70,16 @@ def stop():
     is_hr_active = False
 
 def test_shocker():
-    test.test_shock()
+    test_intensity = content['test_intensity'].get()
+    if test_intensity > 20:
+        test_intensity = 10
+    test.test_shock(test_intensity)
+
+def test_vibe():
+    test_intensity = content['test_intensity'].get()
+    if test_intensity > 20:
+        test_intensity = 10
+    test.send_vibrate(test_intensity)
 
 def randomly_shock():
     if random.random() < 0.2:
@@ -134,6 +144,10 @@ content['buttons_frame'] = tk.Frame(content['controls_frame'])
 content['start'] = tk.Button(content['buttons_frame'], text="Start Heart rate Monitoring", command=start)
 content['stop'] = tk.Button(content['buttons_frame'], text="Stop Heart rate Monitoring", command=stop)
 content['test_shocker'] = tk.Button(content['buttons_frame'], text="Test Shocker", command=test_shocker)
+content['test_intensity'] = LabeledSpin(content['buttons_frame'], 'Test intensity', 1)
+content['test_intensity'].set_range(1,20)
+content['test_vibrate'] = tk.Button(content['buttons_frame'], text="Test Vibrate", command=test.send_vibrate)
+content['test_beep'] = tk.Button(content['buttons_frame'], text="Test Beep", command=test.send_beep)
 content['luck_mode'] = tk.Button(content['buttons_frame'], text="Toggle Gamble Mode", command=lucky_mode)
 content['luck_mode_value'] = tk.Label(content['buttons_frame'], text="Gamble Mode is OFF")
 content['lucky'] = tk.Button(content['buttons_frame'], text="I'm Feelin Lucky", command=randomly_shock)
@@ -142,6 +156,9 @@ content['lucky'] = tk.Button(content['buttons_frame'], text="I'm Feelin Lucky", 
 content['start'].pack()
 content['stop'].pack()
 content['test_shocker'].pack()
+content['test_vibrate'].pack()
+content['test_beep'].pack()
+content['test_intensity'].pack()
 content['luck_mode'].pack()
 content['luck_mode_value'].pack()
 content['lucky'].pack()

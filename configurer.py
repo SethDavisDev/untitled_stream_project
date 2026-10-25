@@ -2,6 +2,7 @@
 import time
 import random
 from dataclasses import dataclass
+from collections import deque
 
 #dependencies
 import numpy as np
@@ -55,14 +56,18 @@ class Configlayer:
         self.max_retries = 5
         self.retries_left = 0
         self.luck_numerator = 1
-        self.luck_denomenator = 5
+        self.luck_denomenator = 3
        
     def increase_luck_numerator(self):
         self.luck_numerator = min(self.luck_numerator + 1, self.luck_denomenator)
     def reset_luck(self):
         self.luck_numerator = 1
-    def test_shock(self):
-        self.shocker.shock(self.shocker_id, 500, 5)
+    def test_shock(self, intensity):
+        self.shocker.shock(self.shocker_id, 500, intensity)
+    def send_beep(self):
+            self.shocker.beep(self.shocker_id, 500)
+    def send_vibrate(self, intesity):
+        self.shocker.vibrate(self.shocker_id, 500, intesity)
 
     #sends auth information through to the heartrate monitor object
     def configure_devices(self, pulse_code, pishock_code):
@@ -73,7 +78,7 @@ class Configlayer:
     def set_timeblock(self, new_duration):
         self.shock_timeblock_duration_s = new_duration
 
-    def configure_settings(self, low_spike, high_spike, window_size, low_shock, high_shock, duration, block_duration, set_chance):
+    def configure_settings(self, low_spike, high_spike, window_size, low_shock, high_shock, duration, block_duration):
         self.min_punishable_spike = low_spike
         self.max_punishable_spike = high_spike
         self.history_window_size = window_size
@@ -81,7 +86,6 @@ class Configlayer:
         self.max_intensity = high_shock
         self.shock_duration = duration
         self.shock_timeblock_duration_s = block_duration
-        self.starting_chance = set_chance
 
     # remove heartrate data from history
     def clear_history(self):
@@ -95,7 +99,7 @@ class Configlayer:
         self.history.append(filtered)
         if len(self.history) > self.history_window_size:
             self.history.pop(0)
-        self.get_historic_hr_difference()
+        self.get_historic_hr_difference(self.history)
 
     #checks the last 15 seconds of filtered heartrate data and returns the lowest, highest, and the difference between them
     def get_historic_hr_difference(self, history):
@@ -109,16 +113,17 @@ class Configlayer:
         else:
             self.last_change_snapshot.is_increasing = True
             print("heartrate increasing")
-        
 
     def reset_shock_blocker(self):
         if time.perf_counter() - self.last_shock_time > self.shock_timeblock_duration_s:
             self.is_allowed_to_shock = True
-    
-    def is_shock_deserved(self) -> bool:    
-        # bool whether we need to send shock
+
+    #whether a shock should be sent
+    def is_shock_deserved(self) -> bool:
+        # heartrate is not increasing
         if not self.last_change_snapshot.is_increasing:
             return False
+        # heart rate did not change by enough
         if (self.last_change_snapshot.change) < self.min_punishable_spike:
             return False
         if not self.is_allowed_to_shock:
@@ -144,7 +149,7 @@ class Configlayer:
     
     def shocker_output(self):
         #generate information about the shock we need to send
-        sanitized_delta = min(self.last_data.c, self.max_punishable_spike)
+        sanitized_delta = min(self.last_change_snapshot.change, self.max_punishable_spike)
         intensity = self.convert_jump_amount_to_intensity(sanitized_delta)
 
         #send shock
