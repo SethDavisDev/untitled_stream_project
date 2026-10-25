@@ -66,8 +66,8 @@ class Configlayer:
         self.shocker.shock(self.shocker_id, 500, intensity)
     def send_beep(self):
             self.shocker.beep(self.shocker_id, 500)
-    def send_vibrate(self, intesity):
-        self.shocker.vibrate(self.shocker_id, 500, intesity)
+    def send_vibrate(self, intensity):
+        self.shocker.vibrate(self.shocker_id, 500, intensity)
 
     #sends auth information through to the heartrate monitor object
     def configure_devices(self, pulse_code, pishock_code):

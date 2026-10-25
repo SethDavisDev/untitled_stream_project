@@ -146,7 +146,7 @@ content['stop'] = tk.Button(content['buttons_frame'], text="Stop Heart rate Moni
 content['test_shocker'] = tk.Button(content['buttons_frame'], text="Test Shocker", command=test_shocker)
 content['test_intensity'] = LabeledSpin(content['buttons_frame'], 'Test intensity', 1)
 content['test_intensity'].set_range(1,20)
-content['test_vibrate'] = tk.Button(content['buttons_frame'], text="Test Vibrate", command=test.send_vibrate)
+content['test_vibrate'] = tk.Button(content['buttons_frame'], text="Test Vibrate", command=test_vibe)
 content['test_beep'] = tk.Button(content['buttons_frame'], text="Test Beep", command=test.send_beep)
 content['luck_mode'] = tk.Button(content['buttons_frame'], text="Toggle Gamble Mode", command=lucky_mode)
 content['luck_mode_value'] = tk.Label(content['buttons_frame'], text="Gamble Mode is OFF")
